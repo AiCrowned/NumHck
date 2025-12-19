@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NumHck v1.0 // SYSTEM ACCESS</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #000000;
+            --color-main: #00FF00;
+            --color-alert: #FF0000;
+            --color-violet: #d000ff;
+            --color-dim: #003300;
+            --scan-line-color: rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--color-bg);
+            color: var(--color-main);
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+        }
+
+        /* --- VISUAL EFFECTS --- */
+        
+        /* Background Matrix Canvas */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.15;
+        }
+
+        /* CRT Flicker */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: rgba(18, 16, 16, 0.1);
+            opacity: 0;
+            z-index: 100;
+            pointer-events: none;
+            animation: flicker 0.15s infinite;
+        }
+
+        /* Scanlines */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                to bottom,
+                var(--scan-line-color) 50%,
+                transparent 50%
+            );
+            background-size: 100% 4px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.02; }
+            50% { opacity: 0.05; }
+            100% { opacity: 0.02; }
+        }
+
+        /* Glitch Effect Class */
+        .glitch {
+            position: relative;
+        }
+        .glitch::before, .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+        }
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 #ff00c1;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 #00fff9;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(13px, 9999px, 81px, 0); }
+            5% { clip: rect(82px, 9999px, 37px, 0); }
+            10% { clip: rect(59px, 9999px, 14px, 0); }
+            15% { clip: rect(27px, 9999px, 5px, 0); }
+            20% { clip: rect(6px, 9999px, 76px, 0); }
+            100% { clip: rect(32px, 9999px, 49px, 0); }
+        }
+        @keyframes glitch-anim2 {
+            0% { clip: rect(2px, 9999px, 89px, 0); }
+            5% { clip: rect(53px, 9999px, 18px, 0); }
+            10% { clip: rect(10px, 9999px, 2px, 0); }
+            15% { clip: rect(93px, 9999px, 66px, 0); }
+            20% { clip: rect(31px, 9999px, 79px, 0); }
+            100% { clip: rect(16px, 9999px, 40px, 0); }
+        }
+
+        /* --- UI COMPONENTS --- */
+
+        #app-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            text-align: center;
+            border-bottom: 2px solid var(--color-main);
+            padding-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        /* Startup Screen */
+        #boot-log {
+            font-size: 1.2rem;
+            line-height: 1.5;
+            min-height: 150px;
+            margin-bottom: 20px;
+        }
+
+        /* Input & Forms */
+        .input-group {
+            position: relative;
+        }
+
+        label {
+            display: block;
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            text-shadow: 0 0 5px var(--color-main);
+        }
+
+        input[type="number"] {
+            width: 100%;
+            background: transparent;
+            border: 2px solid var(--color-main);
+            color: var(--color-main);
+            font-family: 'VT323', monospace;
+            font-size: 2rem;
+            padding: 10px;
+            outline: none;
+            text-align: center;
+            box-shadow: 0 0 10px var(--color-dim);
+        }
+        
+        input[type="number"]:focus {
+            box-shadow: 0 0 15px var(--color-main);
+        }
+
+        /* Hack Button */
+        button {
+            background: var(--color-main);
+            color: var(--color-bg);
+            border: none;
+            font-family: 'VT323', monospace;
+            font-size: 1.5rem;
+            padding: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        button:hover, button:active {
+            background: #fff;
+            box-shadow: 0 0 20px var(--color-main);
+        }
+
+        button:disabled {
+            background: var(--color-dim);
+            color: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Terminal Console */
+        #console-output {
+            height: 120px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid var(--color-dim);
+            padding: 10px;
+            font-size: 1rem;
+            overflow-y: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            color: rgba(0, 255, 0, 0.7);
+        }
+
+        /* Result Area */
+        #result-display {
+            border: 2px dashed var(--color-dim);
+            padding: 20px;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .result-green { color: var(--color-main); border-color: var(--color-main) !important; text-shadow: 0 0 10px var(--color-main); }
+        .result-red { color: var(--color-alert); border-color: var(--color-alert) !important; text-shadow: 0 0 10px var(--color-alert); }
+        .result-violet { color: var(--color-violet); border-color: var(--color-violet) !important; text-shadow: 0 0 10px var(--color-violet); }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix-canvas"></canvas>
+
+    <div id="app-container">
+        
+        <h1 class="glitch" data-text="NumHck v1.0">NumHck v1.0</h1>
+
+        <div id="startup-screen" class="screen active">
+            <div id="boot-log"></div>
+            <button id="btn-enter" style="display:none;" onclick="enterSystem()">[ ENTER SYSTEM ]</button>
+        </div>
+
+        <div id="main-screen" class="screen">
+            <div class="input-group">
+                <label>> TARGET PERIOD NUMBER:</label>
+                <input type="number" id="period-input" placeholder="e.g. 20231205" autocomplete="off">
+            </div>
+
+            <button id="btn-hack" onclick="initiateHack()">INITIATE HACK_</button>
+
+            <div id="console-output">
+                > WAITING FOR INPUT...
+            </div>
+
+            <div id="result-display">
+                [ READY ]
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. MATRIX RAIN EFFECT ---
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Responsive Canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const chars = '0123456789ABCDEFxykz';
+        const fontSize = 14;
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 50);
+
+        // --- 2. AUDIO SYSTEM (TTS) ---
+        const synth = window.speechSynthesis;
+        let voice = null;
+
+        function loadVoices() {
+            const voices = synth.getVoices();
+            // Try to find a deeper or robotic sounding voice
+            voice = voices.find(v => v.name.includes("Google US English")) || 
+                    voices.find(v => v.lang === "en-US") || 
+                    voices[0];
+        }
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        function speak(text) {
+            if (synth.speaking) synth.cancel();
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.voice = voice;
+            utterThis.pitch = 0.7; // Lower pitch for hacker vibe
+            utterThis.rate = 0.9;  // Slightly slower
+            utterThis.volume = 1;
+            synth.speak(utterThis);
+        }
+
+        // --- 3. UI LOGIC ---
+
+        // DOM Elements
+        const bootLog = document.getElementById('boot-log');
+        const startupScreen = document.getElementById('startup-screen');
+        const mainScreen = document.getElementById('main-screen');
+        const btnEnter = document.getElementById('btn-enter');
+        const consoleOut = document.getElementById('console-output');
+        const resultDisplay = document.getElementById('result-display');
+        const periodInput = document.getElementById('period-input');
+        const btnHack = document.getElementById('btn-hack');
+
+        // Boot Sequence
+        const bootLines = [
+            "> Initializing Kernel...",
+            "> Loading Modules...",
+            "> Bypassing Firewall...",
+            "> Establishing Secure Connection...",
+            "> Access Granted."
+        ];
+
+        let lineIndex = 0;
+        function runBootSequence() {
+            if (lineIndex < bootLines.length) {
+                const p = document.createElement('div');
+                p.textContent = bootLines[lineIndex];
+                bootLog.appendChild(p);
+                lineIndex++;
+                setTimeout(runBootSequence, 600);
+            } else {
+                btnEnter.style.display = 'inline-block';
+            }
+        }
+
+        // Start animation on load
+        window.onload = () => {
+            loadVoices();
+            runBootSequence();
+        };
+
+        // Transition to Main
+        function enterSystem() {
+            // Need user interaction to initialize audio context in some browsers
+            speak("System Initialized. Welcome User.");
+            startupScreen.classList.remove('active');
+            mainScreen.classList.add('active');
+        }
+
+        // --- 4. HACKING LOGIC ---
+
+        const fakeLogs = [
+            "[+] Injecting SQL payload...",
+            "[+] Analyzing pattern history...",
+            "[+] Decrypting SHA-256 hash...",
+            "[+] Bypassing RNG seed...",
+            "[+] Connecting to node 192.168.x.x...",
+            "[+] Retrieving data packets...",
+            "[+] Packet loss: 0%.",
+            "[+] Algorithm sync complete."
+        ];
+
+        function logToConsole(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            consoleOut.appendChild(div);
+            consoleOut.scrollTop = consoleOut.scrollHeight;
+            // Keep fake log size manageable
+            if (consoleOut.childElementCount > 6) {
+                consoleOut.removeChild(consoleOut.firstChild);
+            }
+        }
+
+        function initiateHack() {
+            const inputVal = periodInput.value;
+            
+            if (!inputVal) {
+                speak("Error. Input required.");
+                logToConsole("[!] ERROR: NO INPUT DETECTED");
+                periodInput.focus();
+                return;
+            }
+
+            // Lock UI
+            btnHack.disabled = true;
+            periodInput.disabled = true;
+            resultDisplay.style.opacity = '0';
+            resultDisplay.className = ''; // Reset colors
+            
+            speak("Initiating Hack. Analyzing Pattern.");
+            
+            // Run fake logs
+            let logCount = 0;
+            const logInterval = setInterval(() => {
+                logToConsole(fakeLogs[Math.floor(Math.random() * fakeLogs.length)]);
+                logCount++;
+                if (logCount > 8) {
+                    clearInterval(logInterval);
+                    finalizeResult(inputVal);
+                }
+            }, 300);
+        }
+
+        function finalizeResult(period) {
+            // Deterministic Algorithm
+            // Formula: (Period * 7 + 13) % 10
+            const p = parseInt(period);
+            const raw = (p * 7 + 13) % 10;
+            
+            let color = "";
+            let colorClass = "";
+
+            if ([1, 3, 7, 9].includes(raw)) {
+                color = "GREEN";
+                colorClass = "result-green";
+            } else if ([2, 4, 6, 8].includes(raw)) {
+                color = "RED";
+                colorClass = "result-red";
+            } else {
+                color = "VIOLET";
+                colorClass = "result-violet";
+            }
+
+            // Display
+            resultDisplay.innerHTML = `[ PREDICTION: ${color} ]`;
+            resultDisplay.classList.add(colorClass);
+            resultDisplay.style.opacity = '1';
+
+            // Audio Result
+            speak("Hack Successful. Prediction is " + color);
+
+            // Unlock UI
+            btnHack.disabled = false;
+            periodInput.disabled = false;
+            logToConsole(`[+] RESULT: ${color}`);
+        }
+
+    </script>
+</body>
+</html>
